@@ -7,10 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func HandleMarshalling[T any](c *gin.Context, req *T) error {
-	if err := c.ShouldBindJSON(req); err != nil {
-		custom_errors.SetResponseError(c, custom_errors.MarshallError)
-		return err
+func HandleMarshalling[T any](context *gin.Context, req *T) error {
+	if err := context.ShouldBindJSON(req); err != nil {
+		custom_errors.HandleError(context, custom_errors.MarshallError)
 	}
 	return nil
 }
