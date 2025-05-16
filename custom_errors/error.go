@@ -3,6 +3,7 @@ package custom_errors
 import (
 	"encoding/json"
 	"errors"
+	"github.com/Zaytsev-Dmitry/apikit/dto"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
@@ -17,32 +18,15 @@ var (
 	Unauthorized    = errors.New("нет прав доступа")
 )
 
-type MetaData struct {
-	Path      string `json:"path"`
-	Timestamp string `json:"timestamp"`
-}
-
-type ErrorBuilderFunc[T any] func(description string, code int, meta MetaData) T
-
-func HandleError[T any](c *gin.Context, err error, builder ErrorBuilderFunc[T]) {
-	resp, status := buildErrorResponse(c, err, builder)
-	c.JSON(status, resp)
-}
-
-func SetResponseError[T any](c *gin.Context, err error, builder ErrorBuilderFunc[T]) {
+func HandleError(c *gin.Context, err error) {
 	status, msg := getErrorMsgAndStatus(err)
-	resp := builder(msg, status, getMeta(c))
-
-	c.Writer.Header().Set("Content-Type", "application/json")
-	c.Status(status)
-	json.NewEncoder(c.Writer).Encode(resp)
+	responseError := getErrorDto(msg, status, c)
+	c.JSON(status, responseError)
 }
 
-func getMeta(c *gin.Context) MetaData {
-	return MetaData{
-		Path:      c.Request.URL.Path,
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
+func GetErrorDto(c *gin.Context, err error) dto.BackendErrorResponse {
+	status, msg := getErrorMsgAndStatus(err)
+	return getErrorDto(msg, status, c)
 }
 
 func getErrorMsgAndStatus(err error) (int, string) {
@@ -62,8 +46,35 @@ func getErrorMsgAndStatus(err error) (int, string) {
 	}
 }
 
-func buildErrorResponse[T any](c *gin.Context, err error, builder ErrorBuilderFunc[T]) (T, int) {
-	status, msg := getErrorMsgAndStatus(err)
-	meta := getMeta(c)
-	return builder(msg, status, meta), status
+func getErrorDto(err string, errorCode int, context *gin.Context) dto.BackendErrorResponse {
+	nowString := time.Now().String()
+	return dto.BackendErrorResponse{
+		Description: &err,
+		ErrorCode:   &errorCode,
+		Meta: &dto.MetaData{
+			Path:      &context.Request.URL.Path,
+			Timestamp: &nowString,
+		},
+	}
+}
+
+func SetResponseError(context *gin.Context, err error) {
+	var status int
+	msg := "Oops...что то пошло не так"
+
+	switch {
+	case errors.Is(err, RowNotFound):
+		status = http.StatusNotFound
+		msg = err.Error()
+	case errors.Is(err, MarshallError) || errors.Is(err, ValidationError):
+		status = http.StatusBadRequest
+		msg = err.Error()
+	default:
+		status = http.StatusInternalServerError
+	}
+
+	var responseError = getErrorDto(msg, status, context)
+	context.Writer.Header().Set("Content-Type", "application/json")
+	context.Status(status)
+	json.NewEncoder(context.Writer).Encode(responseError)
 }
