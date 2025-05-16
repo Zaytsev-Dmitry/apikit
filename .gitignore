@@ -1,0 +1,11 @@
+# Binaries
+*.exe
+*.out
+*.test
+
+# IDEs
+.vscode/
+.idea/
+
+# Go modules
+go.sum
