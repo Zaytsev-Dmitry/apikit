@@ -1,7 +1,6 @@
 package custom_errors
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/Zaytsev-Dmitry/apikit/dto"
 	"github.com/gin-gonic/gin"
@@ -24,16 +23,13 @@ func HandleError(c *gin.Context, err error) {
 	c.JSON(status, responseError)
 }
 
-func GetErrorDto(c *gin.Context, err error) dto.BackendErrorResponse {
-	status, msg := getErrorMsgAndStatus(err)
-	return getErrorDto(msg, status, c)
-}
-
 func getErrorMsgAndStatus(err error) (int, string) {
 	switch {
 	case errors.Is(err, RowNotFound):
 		return http.StatusNotFound, err.Error()
-	case errors.Is(err, MarshallError), errors.Is(err, ValidationError):
+	case errors.Is(err, MarshallError):
+		return http.StatusInternalServerError, err.Error()
+	case errors.Is(err, ValidationError):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, ConflictError):
 		return http.StatusConflict, err.Error()
@@ -56,25 +52,4 @@ func getErrorDto(err string, errorCode int, context *gin.Context) dto.BackendErr
 			Timestamp: &nowString,
 		},
 	}
-}
-
-func SetResponseError(context *gin.Context, err error) {
-	var status int
-	msg := "Oops...что то пошло не так"
-
-	switch {
-	case errors.Is(err, RowNotFound):
-		status = http.StatusNotFound
-		msg = err.Error()
-	case errors.Is(err, MarshallError) || errors.Is(err, ValidationError):
-		status = http.StatusBadRequest
-		msg = err.Error()
-	default:
-		status = http.StatusInternalServerError
-	}
-
-	var responseError = getErrorDto(msg, status, context)
-	context.Writer.Header().Set("Content-Type", "application/json")
-	context.Status(status)
-	json.NewEncoder(context.Writer).Encode(responseError)
 }
