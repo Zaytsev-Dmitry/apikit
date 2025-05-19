@@ -21,3 +21,11 @@ func HandleResponse[T any, R any](c *gin.Context, logic func() (T, error), prese
 		c.JSON(http.StatusOK, present(result, c))
 	}
 }
+
+func HandleResponseWithoutPresent(c *gin.Context, logic func() error) {
+	if err := logic(); err != nil {
+		custom_errors.HandleError(c, err)
+	} else {
+		c.Status(http.StatusNoContent)
+	}
+}
